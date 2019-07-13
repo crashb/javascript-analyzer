@@ -32,14 +32,14 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
   private _mainMethod!: ReturnType<typeof extractMainMethod>
   private _mainExport!: ReturnType<typeof extractExport>
 
-  get mainMethod() {
+  private get mainMethod(): ReturnType<typeof extractMainMethod> {
     if (!this._mainMethod) {
       this._mainMethod = extractMainMethod(this.program, 'value')
     }
     return this._mainMethod
   }
 
-  get mainExport() {
+  private get mainExport(): ReturnType<typeof extractExport> {
     if (!this._mainExport) {
       this._mainExport = extractExport(this.program, 'value')
     }
@@ -68,18 +68,18 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
     // The solution is automatically referred to the mentor if it reaches this
   }
 
-  private checkStructure() {
+  private checkStructure(): void | never {
     const method = this.mainMethod
     const [functionDeclaration,] = this.mainExport
 
     // First we check that there is a value function and that this function
     // is exported.
     if (!method) {
-      this.comment(NO_METHOD({ method_name: 'value' }))
+      this.comment(NO_METHOD({ 'method.name': 'value' }))
     }
 
     if (!functionDeclaration) {
-      this.comment(NO_NAMED_EXPORT({ export_name: 'value' }))
+      this.comment(NO_NAMED_EXPORT({ 'export.name': 'value' }))
     }
 
     if (this.hasCommentary) {
@@ -87,13 +87,13 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
     }
   }
 
-  private checkSignature() {
+  private checkSignature(): void | never {
     const method: MainMethod = this.mainMethod!
 
     // If there is no parameter
     // then this solution won't pass the tests.
     if (method.params.length === 0) {
-      this.disapprove(NO_PARAMETER({ function_name: method.id!.name }))
+      this.disapprove(NO_PARAMETER({ 'function.name': method.id!.name }))
     }
 
     const firstParameter = method.params[0]
@@ -104,11 +104,14 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
       const splatArgName = parameterName(firstParameter)
       const splatArgType = annotateType(firstParameter.typeAnnotation)
 
-      this.disapprove(UNEXPECTED_SPLAT_ARGS({ 'splat_arg_name': splatArgName, parameter_type: splatArgType }))
+      this.disapprove(UNEXPECTED_SPLAT_ARGS({
+        'splat-arg.name': splatArgName,
+        'parameter.type': splatArgType
+      }))
     }
   }
 
-  private checkForOptimalSolutions() {
+  private checkForOptimalSolutions(): void | never {
     // There are two optional solutions, either a map-join or a reduce.
     //
     // The map-join solution looks like this:
@@ -149,10 +152,8 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
     //
 
     if (
-         // !this.isArgumentOptimal()
-      !this.isOptimalMapJoinImplementation() && !this.isOptimalReduceImplementation()
-      // || !this.isUsingArrayColors()
-      // || !this.isUsingIndexOf()
+      !this.isOptimalMapJoinImplementation()
+      && !this.isOptimalReduceImplementation()
     ) {
       // continue analyzing
       this.logger.log('~> Solution is not optimal')
@@ -163,13 +164,13 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
     this.approve()
   }
 
-  private checkForTips() {
+  private checkForTips(): void | never {
     if (!this.hasInlineExport()) {
       this.comment(TIP_EXPORT_INLINE())
     }
   }
 
-  private isOptimalMapJoinImplementation() {
+  private isOptimalMapJoinImplementation(): boolean {
     // return Number(colors.map(colorCode).join(''))
 
     return false
@@ -180,11 +181,11 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
     this.redirect()
   }
 
-  private isOptimalReduceImplementation() {
+  private isOptimalReduceImplementation(): boolean {
     return false
   }
 
-  private hasInlineExport() {
+  private hasInlineExport(): boolean {
     // Additionally make sure the export is inline by checking if it doesn't
     // have any specifiers:
     //
