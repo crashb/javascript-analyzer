@@ -30,6 +30,7 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
   private source!: string
 
   private _mainMethod!: ReturnType<typeof extractMainMethod>
+  private _mainConstants!: ReturnType<typeof findTopLevelConstants>
   private _mainExport!: ReturnType<typeof extractExport>
 
   private get mainMethod(): ReturnType<typeof extractMainMethod> {
@@ -44,6 +45,13 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
       this._mainExport = extractExport(this.program, 'value')
     }
     return this._mainExport
+  }
+
+  private get mainConstants(): ReturnType<typeof findTopLevelConstants> {
+    if (!this._mainConstants) {
+      this._mainConstants = findTopLevelConstants(this.program, ['let', 'const', 'var'])
+    }
+    return this._mainConstants
   }
 
   public async execute(input: Input): Promise<void> {
@@ -112,44 +120,10 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
   }
 
   private checkForOptimalSolutions(): void | never {
-    // There are two optional solutions, either a map-join or a reduce.
+    // There are two optimal solutions: either a map-join or a reduce.
     //
-    // The map-join solution looks like this:
-    //
-    // const COLORS = ['...', '...']
-    // function colorCode(color) {
-    //   return COLORS.indexOf(color)
-    // }
-    //
-    // export function value(colors) {
-    //   return Number(colors.map(colorCode).join(''))
-    // }
-    //
-    // The COLORS constant must be an Array and there must be a single call to
-    // indexOf. Additionally, the colorCode function can not have a default
-    // argument, or any other syntax, such as conditionals, re-assignment, and
-    // so forth.
-    //
-    // The value function uses Number for conversion (not parseXXX), calls map
-    // with a single argument (a function that calls `COLORS.indexOf`) and then
-    // joins the values.
-    //
-    //
-    // The reduce variant looks like this, with the second argument to reduce
-    // being optional.
-    //
-    // export function value(colors) {
-    //   return colors
-    //     .reverse()
-    //     .reduce((value, color, i) => {
-    //       return colorCode(color) * (10 ** i) + value
-    //     }, 0)
-    // }
-    //
-    //
-    // Other solutions might be approved but this is the only one that we would
-    // approve without comment.
-    //
+    // Other solutions might be approved but these are the only ones
+    // that we would approve without comment.
 
     if (
       !this.isOptimalMapJoinImplementation()
@@ -171,17 +145,72 @@ export class ResistorColorDuoAnalyzer extends AnalyzerImpl {
   }
 
   private isOptimalMapJoinImplementation(): boolean {
-    // return Number(colors.map(colorCode).join(''))
+    // The optimal map-join solution looks like this:
+    //
+    // const COLORS = ['...', '...']
+    //
+    // function colorCode(color) {
+    //   return COLORS.indexOf(color)
+    // }
+    //
+    // export function value(colors) {
+    //   return Number(colors.map(colorCode).join(''))
+    // }
+    //
+    // The COLORS constant must be an Array and there must be a single call to
+    // indexOf. Additionally, the colorCode function can not have a default
+    // argument, or any other syntax, such as conditionals, re-assignment, and
+    // so forth.
+    //
+    // The value function uses Number for conversion (not parseXXX), calls map
+    // with a single argument (a function that calls `COLORS.indexOf`) and then
+    // joins the values.
 
-    return false
+    if (!this.isUsingOptimalConstants()) {
+      return false
+    }
 
-    // Should _never_ happen
-    this.logger.log(`=> The body failed all the stuctural tests. It's a ${''}`)//method!.type}.`)
-    // Bail out
-    this.redirect()
+    return false  // still unimplemented
+  }
+
+  private isUsingOptimalConstants(): boolean {
+    // An optimal solution will use a single array constant
+    if (
+      this.mainConstants
+        .filter((c): boolean => c.init!.type === AST_NODE_TYPES.ArrayExpression)
+        .length !== 1) {
+      return false
+    }
+
+    // An optimal solution will only have constants that are arrays
+    // or some kind of function expression
+    const acceptableTypes = [
+      AST_NODE_TYPES.ArrayExpression, 
+      AST_NODE_TYPES.FunctionExpression, 
+      AST_NODE_TYPES.ArrowFunctionExpression
+    ]
+    if (
+      this.mainConstants
+        .filter((c): boolean => !acceptableTypes.includes(c.init!.type))
+        .length > 0) {
+      return false
+    }
+
+    return true
   }
 
   private isOptimalReduceImplementation(): boolean {
+    // The reduce variant looks like this, with the second argument to reduce
+    // being optional.
+    //
+    // export function value(colors) {
+    //   return colors
+    //     .reverse()
+    //     .reduce((value, color, i) => {
+    //       return colorCode(color) * (10 ** i) + value
+    //     }, 0)
+    // }
+    
     return false
   }
 
